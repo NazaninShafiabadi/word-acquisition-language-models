@@ -22,6 +22,7 @@ from transformers import (
     AutoModelForCausalLM,
     AutoConfig,
     AlbertTokenizer,
+    AutoTokenizer
 )
 
 from rnn_models import (
@@ -111,11 +112,13 @@ def get_sample_sentences(tokenizer, wordbank_file, wordbank_lang, tokenized_exam
     wordbank_tokens = get_inflected_tokens(wordbank_tokens, inflections)
     # Get token ids.
     for token in wordbank_tokens:
-        token = "\u2581" + token # Add space before (for spm tokenizer).
+        # MODIFICATION: commented-out the following line since we're not using an spm tokenizer
+        # token = "\u2581" + token # Add space before (for spm tokenizer).
         token_id = tokenizer._convert_token_to_id_with_added_voc(token)
         if token_id != tokenizer.unk_token_id:
             token_data.append(tuple([token, token_id, []]))
     # Load sentences.
+    print(f"Loading sentences from {tokenized_examples_file}.")
     infile = codecs.open(tokenized_examples_file, 'rb', encoding='utf-8')
     for line_count, line in enumerate(infile):
         if line_count % 100000 == 0:
@@ -333,7 +336,8 @@ def load_single_model(single_model_dir, model_type, config, tokenizer):
 
 def main(args):
     # Load config.
-    config_path = os.path.join(args.model_dir, "config.json")
+    # config_path = os.path.join(args.model_dir, "config.json")
+    config_path = args.model_dir    # MODIFICATION
     args.model_type = args.model_type.lower()
     if args.model_type == "gpt2" or args.model_type == "bert":
         config = AutoConfig.from_pretrained(config_path)
@@ -344,9 +348,11 @@ def main(args):
         max_seq_len = config["max_seq_len"]
     bidirectional = (args.model_type ==  "bert" or args.model_type == "bilstm")
 
+    # MODIFICATION: modified code for loading the tokenizer
     # Load tokenizer.
-    print("Attempting to use local sentencepiece model file as tokenizer.")
-    tokenizer = AlbertTokenizer.from_pretrained(args.tokenizer)
+    # print("Attempting to use local sentencepiece model file as tokenizer.")
+    # tokenizer = AlbertTokenizer.from_pretrained(args.tokenizer)
+    tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
     # Overwrite special token ids in the configs.
     if args.model_type == "bert":
         config.pad_token_id = tokenizer.pad_token_id
@@ -360,9 +366,10 @@ def main(args):
     # Get the tokens to consider, and the corresponding sample sentences.
     print("Getting sample sentences for tokens.")
     if args.save_samples != "" and os.path.isfile(args.save_samples):
-        print("Loading sample sentences from file.")
+        print(f"Loading sample sentences from {args.save_samples}.")
         token_data = pickle.load(open(args.save_samples, "rb"))
     else: # save_samples is empty or file does not exist.
+        print(f"Getting sample sentences from {args.wordbank_file}.")
         token_data = get_sample_sentences(
             tokenizer, args.wordbank_file, args.wordbank_lang, args.examples_file,
             max_seq_len, args.min_seq_len, args.max_samples, bidirectional=bidirectional,
@@ -376,24 +383,38 @@ def main(args):
     outfile.write("Steps\tToken\tMedianRank\tMeanSurprisal\tStdevSurprisal\tAccuracy\tNumExamples\n")
     # Get checkpoints.
     if args.checkpoints is None or len(args.checkpoints) == 0:
-        checkpoints = set() # Set of ints.
-        for root, dirs, files in os.walk(args.model_dir):
-            for dir in dirs:
-                if "checkpoint-" in dir:
-                    checkpoint = int(dir.strip().split("-")[-1])
-                    checkpoints.add(checkpoint)
+        pass
+        # checkpoints = set() # Set of ints.
+        # for root, dirs, files in os.walk(args.model_dir):
+        #     for dir in dirs:
+        #         if "checkpoint-" in dir:
+        #             checkpoint = int(dir.strip().split("-")[-1])
+        #             checkpoints.add(checkpoint)
     else:
         checkpoints = args.checkpoints
-    checkpoints = list(checkpoints)
-    checkpoints.sort()
+        # MODIFICATION: added indentation
+        checkpoints = list(checkpoints)
+        checkpoints.sort()
 
     # Run evaluation.
-    for checkpoint in checkpoints:
-        print("CHECKPOINT STEPS: {}".format(checkpoint))
-        single_model_dir = os.path.join(args.model_dir, "checkpoint-{}".format(checkpoint))
-        model = load_single_model(single_model_dir, args.model_type, config, tokenizer)
+    # MODIFICATION: commented out
+    # for checkpoint in checkpoints:
+    #     print("CHECKPOINT STEPS: {}".format(checkpoint))
+    #     single_model_dir = os.path.join(args.model_dir, "checkpoint-{}".format(checkpoint))
+    #     model = load_single_model(single_model_dir, args.model_type, config, tokenizer)
+    #     evaluate_tokens(model, args.model_type, token_data, tokenizer, outfile,
+    #                     checkpoint, args.batch_size, args.min_samples)
+    
+    # MODIFICATION: added following code block
+    # Get checkpoints & Run evaluation.
+    steps = list(range(0, 200_000, 20_000)) + list(range(200_000, 2_100_000, 100_000))
+    for step in steps:
+        checkpoint = args.model_dir + f"-step_{step//1000}k"
+        # tokenizer = AlbertTokenizer.from_pretrained(checkpoint)
+        model = load_single_model(checkpoint, args.model_type, config, tokenizer)
         evaluate_tokens(model, args.model_type, token_data, tokenizer, outfile,
-                        checkpoint, args.batch_size, args.min_samples)
+                        step, args.batch_size, args.min_samples)
+
     outfile.close()
 
 
