@@ -276,7 +276,7 @@ def load_single_model(single_model_dir, config, tokenizer, model_type='bert'):
 
 
 def main(args):
-    config_path = args.model_dir
+    config_path = args.model
     args.model_type = args.model_type.lower()
     config = AutoConfig.from_pretrained(config_path)
     bidirectional = True
@@ -311,7 +311,7 @@ def main(args):
     # Get checkpoints & Run evaluation.
     steps = list(range(0, 200_000, 20_000)) + list(range(200_000, 2_100_000, 100_000))
     for step in steps:
-        checkpoint = args.model_dir + f"-step_{step//1000}k"
+        checkpoint = args.model + f"-step_{step//1000}k"
         model = load_single_model(checkpoint, config, tokenizer, args.model_type)
         evaluate_tokens(model, token_data, tokenizer, outfile,
                         step, args.batch_size, args.min_samples)
