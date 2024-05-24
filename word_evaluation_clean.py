@@ -101,7 +101,7 @@ def get_sample_sentences(tokenizer, wordbank_file, tokenized_examples_file,
     wordbank_tokens = get_inflected_tokens(wordbank_tokens, inflections)
     # Get token ids.
     for token in wordbank_tokens:
-        token_id = tokenizer._convert_token_to_id_with_added_voc(token)
+        token_id = tokenizer.convert_tokens_to_ids(token)
         if token_id != tokenizer.unk_token_id:
             token_data.append(tuple([token, token_id, []]))
     # Load sentences.
