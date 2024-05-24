@@ -95,7 +95,7 @@ def get_sample_sentences(tokenizer, wordbank_file, tokenized_examples_file,
     # Each entry of token data is a tuple of token, token_id, masked_sample_sentences.
     token_data = []
     # Load words.
-    df = pd.read_csv(wordbank_file, sep='\t')
+    df = pd.read_csv(wordbank_file, sep='\t').dropna().reset_index(drop=True)
     wordbank_tokens = df.token.unique().tolist()
     # Get inflections if desired.
     wordbank_tokens = get_inflected_tokens(wordbank_tokens, inflections)
